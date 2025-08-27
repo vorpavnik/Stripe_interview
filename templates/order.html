@@ -1,0 +1,61 @@
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Заказ #{{ order.id }}</title>
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+    <h1>Заказ #{{ order.id }}</h1>
+    
+    <h2>Товары:</h2>
+    <ul>
+        {% for item in order.items.all %}
+            <li>{{ item.name }} - ${{ item.price }} ({{ item.currency }})</li>
+        {% endfor %}
+    </ul>
+    
+    <p><strong>Общая стоимость:</strong> ${{ order.get_total_price }}</p>
+    
+    {% if order.discount %}
+        <p><strong>Скидка:</strong> {{ order.discount.percent_off }}%</p>
+    {% endif %}
+    
+    {% if order.tax %}
+        <p><strong>Налог:</strong> {{ order.tax.percentage }}%</p>
+    {% endif %}
+    
+    <button id="buy-button">Оплатить заказ</button>
+
+    <script>
+        var stripe = Stripe('{{ STRIPE_PUBLISHABLE_KEY }}');
+        var buyButton = document.getElementById('buy-button');
+
+        buyButton.addEventListener('click', function () {
+            buyButton.disabled = true;
+            buyButton.textContent = 'Обработка...';
+
+            fetch('/order/buy/{{ order.id }}/')
+                .then(response => response.json())
+                .then(session => {
+                    if (session.error) {
+                        throw new Error(session.error);
+                    }
+                    return stripe.redirectToCheckout({ sessionId: session.id });
+                })
+                .then(result => {
+                    if (result.error) {
+                        alert(result.error.message);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert('Ошибка: ' + error.message);
+                })
+                .finally(() => {
+                    buyButton.disabled = false;
+                    buyButton.textContent = 'Оплатить заказ';
+                });
+        });
+    </script>
+</body>
+</html>

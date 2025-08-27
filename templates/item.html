@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ item.name }}</title>
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+    <h1>{{ item.name }}</h1>
+    <p>{{ item.description }}</p>
+    <p>Цена: ${{ item.price }} ({{ item.currency }})</p>
+    <button id="buy-button">Купить</button>
+
+    <script>
+        // Убедимся, что Stripe загрузился
+        if (typeof Stripe === 'undefined') {
+            console.error('Stripe.js не загружен');
+            alert('Ошибка загрузки платежной системы');
+        } else {
+            var stripe = Stripe('{{ STRIPE_PUBLISHABLE_KEY }}');
+            var buyButton = document.getElementById('buy-button');
+
+            buyButton.addEventListener('click', function () {
+                // Отключаем кнопку во избежание повторных кликов
+                buyButton.disabled = true;
+                buyButton.textContent = 'Обработка...';
+
+                fetch('/buy/{{ item.id }}/')
+                    .then(function (response) {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(function (session) {
+                        if (session.error) {
+                            throw new Error(session.error);
+                        }
+                        // Используем правильный метод
+                        return stripe.redirectToCheckout({
+                            sessionId: session.id
+                        });
+                    })
+                    .then(function (result) {
+                        if (result.error) {
+                            alert(result.error.message);
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error("Error:", error);
+                        alert('Произошла ошибка: ' + error.message);
+                    })
+                    .finally(function() {
+                        // Восстанавливаем кнопку
+                        buyButton.disabled = false;
+                        buyButton.textContent = 'Купить';
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

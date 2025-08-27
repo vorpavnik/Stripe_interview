@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ item.name }} - Payment Intent</title>
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+    <h1>{{ item.name }}</h1>
+    <p>{{ item.description }}</p>
+    <p>Цена: ${{ item.price }} ({{ item.currency }})</p>
+    
+    <form id="payment-form">
+        <div id="card-element"><!-- Stripe Card Element --></div>
+        <button id="submit-button">Оплатить</button>
+        <div id="payment-errors" role="alert"></div>
+    </form>
+
+    <script>
+        fetch('/payment-intent/{{ item.id }}/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('payment-errors').textContent = data.error;
+                    return;
+                }
+                
+                var stripe = Stripe(data.publishable_key);
+                var elements = stripe.elements();
+                var cardElement = elements.create('card');
+                cardElement.mount('#card-element');
+                
+                var form = document.getElementById('payment-form');
+                form.addEventListener('submit', function(event) {
+                    event.preventDefault();
+                    
+                    stripe.confirmCardPayment(data.client_secret, {
+                        payment_method: {
+                            card: cardElement,
+                        }
+                    }).then(function(result) {
+                        if (result.error) {
+                            document.getElementById('payment-errors').textContent = result.error.message;
+                        } else {
+                            if (result.paymentIntent.status === 'succeeded') {
+                                window.location.href = '/success/';
+                            }
+                        }
+                    });
+                });
+            });
+    </script>
+</body>
+</html>
